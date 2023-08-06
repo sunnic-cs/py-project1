@@ -1,0 +1,1180 @@
+IMPORT datetime 
+
+DEFINE startPPEdata()
+    CALL genAuthcode()
+    DISPLAY("Welcome to the initial inventory creation")
+    DISPLAY("Please fill the required information with the correct format")
+    TRY
+        WITH OPEN "Assignment\ppe.txt","w" AS ppeFile
+            DOWHILE True
+                DISPLAY("Please enter the PPE item name : ")
+                READ itemname
+                DISPLAY("Please enter the item code : ")
+                READ itemcode
+                DISPLAY("Register / Enter Supplier Code : ")  
+                READ suppliercode
+                DECLARE quantity as INTEGER
+                quantity = 100
+                DISPLAY("Please enter the year item inputted (YYYY) : ")
+                READ YYYY
+                DISPLAY("Please enter the month item inputted (MM) : ")
+                READ MM
+                MM = CALL monthLimit(MM)
+                DISPLAY("Please enter the date item inputted (DD) : ")
+                READ DD
+                DD = CALL dayLimit(YYYY, MM, DD)
+                ppeData = itemname+"-"+itemcode+"-"+suppliercode+"-"+STRING(quantity)+"-"+STRING(YYYY)+"-"+STRING(MM)+"-"+STRING(DD)+"\n"
+                WRITE ppeData to ppeFile
+                DISPLAY("Press Enter key to continue or [q] to stop : ")
+                READ cont
+                IF cont WITH lower()=="q" THEN
+                    DISPLAY("PPE data has been recorded to ppe.txt file")
+                    BREAK
+                ENDIF
+            ENDDO
+        ENDWITH
+        RETURN 1
+    EXCEPT
+        DISPLAY("Error Format Detected, Please try again")
+    ENDTRY
+ENDDEFINE
+
+DEFINE startSupplydata(mode,supnum)
+    TRY
+        WITH OPEN "Assignment\ppe.txt","r" AS readPPe
+            DECLARE ppeList = []
+            FOR EACH Data IN readPPe
+                APPEND Data TO ppeList WITH strip() and split("-")
+            ENDFOR
+        ENDWITH
+        WITH OPEN "Assignment\suppliers.txt",mode AS insupply
+            LOOP i FROM 0 TO supnum STEP 1
+                DECLARE checklist = []
+                DISPLAY("Please enter registered supplier code / [q] to stop : ")
+                READ supID
+                IF supID WITH lower() =="q" THEN
+                    BREAK
+                ENDIF
+                WITH OPEN "Assignent\suppliers.txt","r" AS readfh
+                    FOR EACH data IN readfh
+                        APPEND data TO checklist WITH strip() and split("-")
+                    ENDFOR
+
+                    DECLARE checkf=-1
+                    LOOP cnt FROM 0 TO len(checklist) STEP 1
+                        IF supID IN checklist[cnt][1] THEN
+                            DISPLAY("This supplier code has been inputted")
+                            checkf=cnt
+                            BREAK
+                        ENDIF
+                        NEXT cnt
+                    ENDLOOP  
+                    IF checkf==-1 THEN
+                        fl = -1
+                        LOOP cnt FROM 0 TO len(ppeList) STEP 1
+                            IF supID IN ppeList[cnt][2] THEN
+                                fl=cnt
+                                DISPLAY("Item Supplied : "+ ppeList[cnt][0])
+                                supItem = ppeList[cnt][0]
+                                DISPLAY("Enter supplier name : ")
+                                READ supName
+                                DISPLAY("Enter supplier address : ")
+                                READ supAddress
+                                supQuant = ppeList[cnt][3]
+                                suppliers = supName+"-"+supID+"-"+supItem+"-"+supAddress+"-"+STRING(supQuant)+"\n"
+                                WRITE suppliers TO insupply
+                                FLUSH insupply
+                            ENDIF
+                            NEXT cnt
+                        ENDLOOP
+                        IF fl ==-1 THEN
+                            DISPLAY("Supplier code not found")
+                        ENDIF
+                    ENDIF 
+                ENDWITH
+                NEXT i
+            ENDLOOP
+            DISPLAY("suppliers has been recorded in suppliers.txt")
+        ENDWITH
+    EXCEPT
+        DISPLAY("Error format / Data not found")
+    ENDTRY
+ENDDEFINE
+
+DEFINE startHospital(mode,hosnum)
+    WITH OPEN "Assignment\ppe.txt","r" AS ppefh
+        DECLARE list = []
+        FOR EACH data IN ppefh
+            APPEND data TO list WITH strip() and split("-")
+        ENDFOR
+    ENDWITH
+
+        DECLARE IDlist = []
+        FOR EACH cnt IN LIST
+            APPEND cnt[1] TO IDlist
+        ENDFOR
+    TRY    
+        WITH OPEN "Assignment\hospital.txt",mode AS fh
+            LOOP x FROM 0 TO hosnum STEP 1
+                DISPLAY("Enter Hospital name or [q] to stop : ")
+                READ hosName
+                IF hosName WITH lower() == "q" THEN
+                    BREAK              
+                ELSE
+                    CALL u_code(0)
+                    hosID = CALL readID(0)
+                    DISPLAY("Enter hospital address : ")
+                    READ hosAdd
+                    DISPLAY("Enter hospital contact number : ")
+                    READ hosContact
+                    hosData = hosName +"-"+ hosID+"-"+ hosAdd +"-"+ hosContact
+                    LOOP i FROM 0 TO len(IDlist) STEP 1
+                        hosData = hosData +"-"+ IDlist[i]+"-"+"0"                   
+                        NEXT i
+                    ENDLOOP    
+                    hosData = hosData +"\n"
+                    DISPLAY("Registered Hospital Code is : "+ hosID)
+                    WRITE hosData TO fh
+                ENDIF
+                DISPLAY("Hospitals has been recorded into hospital.txt")
+                NEXT x
+            ENDLOOP
+        ENDWITH
+    EXCEPT
+        ("Error format / Data not found")
+    ENDTRY
+ENDDEFINE
+
+DEFINE startDistribution(mode)
+    TRY
+        WITH OPEN "Assignment\ppe.txt" AS ppefh
+            DECLARE ppeList = []
+            FOR EACH elem IN ppefh:
+                APPEND elem TO ppeList WITH strip() and split("-")
+            ENDFOR
+        ENDWITH
+
+        WITH OPEN "Assignment\hospital.txt" AS hospitalfh
+            DECLARE hospitalList = []
+            FOR EACH elem IN hospitalfh
+                APPEND elem TO hospitalList WITH strip() and split()
+            ENDFOR
+        ENDWITH
+
+        WITH OPEN "Assignment\distribution.txt",mode AS distFh
+            DOWHILE True
+                DISPLAY("Enter the item code for distribution : ")
+                READ itemID
+                itemflag = 1
+                LOOP line FROM 0 TO len(ppeList) STEP 1
+                    IF itemID IN ppeList[line][1] THEN
+                        itemflag = 2
+                        DISPLAY("This item has quantity of "+ppeList[line][3]+" boxes")
+                        DISPLAY("How many boxes to distribute ? : "))
+                        READ send_item
+                        DECLARE int_itemquantity AS INTEGER OF ppeList[line][3] 
+                        IF send_item>int_itemquantity THEN
+                            DOWHILE True
+                                DISPLAY("Inssuficcient amount, Enter the correct amount : "))
+                                READ send_item
+                                IF send_item<=int_itemquantity THEN
+                                    BREAK
+                                ENDIF
+                            ENDO
+                        ENDIF
+                        DISPLAY("Enter the destination hospital code : ")
+                        READ hosID
+                        hospFlag = 1
+                        l2flag = -1
+                        LOOP line FROM 0 TO len(hospitalList) STEP 1
+                            IF hospID IN hospitalList[line][1] THEN
+                                LOOP cnt FROM 4 TO len(hospitalList[line]) STEP 1
+                                    IF itemID IN hospitalList[line][cnt] AND cnt%2==0 THEN
+                                        DECLARE hosquant AS INTEGER (hospitalList[line][cnt+1])
+                                        receive_quant = hosquant + send_item
+                                        hospitalList[line][cnt+1] AS STRING (receive_quant)
+                                        hospFlag = 2
+                                        DISPLAY("This item has been distributed")
+                                        CALL u_code(1)
+                                        distID = CALL readID(1)
+                                        DISPLAY("Distribution Code is : "+distID)
+                                        distData = itemID+"-"+ STRING(send_item)+"-"+hospID+"-"+distID+"\n"
+                                        WRITE distData TO distFh
+                                        BREAK
+                                    ENDIF
+                                    NEXT cnt
+                                ENDLOOP
+                                LOOP cnt FROM 0 TO (len(ppeList)) STEP 1
+                                    IF itemID IN ppeList[cnt][1] THEN
+                                        BREAK
+                                    ENDIF
+				    NEXT cnt
+				ENDLOOP
+                                DECLARE current_quantity AS INTEGER (ppeList[cnt][3])
+                                new_quant = current_quantity - send_item
+                                DECLARE ppeList[cnt][3] AS STRING (new_quant)
+  
+
+                                WITH OPEN "Assignment\ppe.txt","w" AS pfh
+                                    LOOP cnt FROM 0 TO (len(ppeList) STEP 1
+                                        join(ppeList[cnt]) with "-"+"\n" AS rec
+                                        WRITE rec TO pfh
+                                        NEXT cnt
+                                    ENDLOOP
+                                ENDWITH
+
+                                WITH OPEN "Assignment\hospital.txt","w" AS hfh
+                                    LOOP cnt FROM 0 TO (len(hospitalList)) STEP 1
+                                        join(hospitalList[cnt]) with "-"+"\n" AS rec
+                                        WRITE rec TO hfh
+                                        NEXT cnt
+                                    ENDLOOP
+                                ENDWITH
+                                
+                                DISPLAY("Enter [n] to exit this process : ")
+                                READ cont
+                                IF cont WITH lower() == "n" THEN
+                                    DISPLAY("Distribution has been recorded to distribution.txt")
+                                    l2flag =1
+                                    BREAK
+                                ENDIF
+                            ENDIF
+                            NEXT line
+                        ENDLOOP
+                        IF l2flag == 1 THEN 
+                            BREAK
+                        ENDIF
+                        IF hospFlag == 1 THEN
+                            DISPLAY("Hospital ID not found")
+                            BREAK
+                        ENDIF  
+                    ENDIF
+                    NEXT line
+                ENDLOOP
+                IF itemflag == 1 THEN
+                    DISPLAY("Item not found")
+                    BREAK
+                ENDIF
+                IF l2flag==1 THEN
+                    BREAK
+                ENDIF
+            ENDDO
+        ENDWITH 
+    EXCEPT
+        DISPLAY("Error format/File doesn't Exist")
+    ENDTRY
+ENDDEFINE
+
+DEFINE startTransactions()
+    TRY
+        IMPORT datetime
+        WITH OPEN "Assignment\suppliers.txt","r" AS supfh
+            DECLARE suplist = []
+            FOR EACH data IN supfh 
+                APPEND data TO suplist WITH strip() and split("-")
+            ENDFOR
+        ENDWITH
+        WITH OPEN "Assignment\ppe.txt" AS ppefh:
+            DECLARE ppelist = []
+            FOR EACH data IN ppefh
+                APPEND data to ppelist WITH strip() and split("-")
+            ENDFOR
+        ENDWITH
+
+        WITH OPEN "Assignment\Transactions.txt","a" AS transfh
+            DOWHILE True
+                DISPLAY("Enter supplier ID : ")
+                READ supplierID
+                supflag = -1
+                l1flag = -1
+                LOOP cnt FROM 0 TO (len(suplist)) STEP 1
+                    IF supplierID IN suplist[cnt][1] THEN
+                        supflag = cnt
+                        sup_quant = INTEGER(suplist[cnt][4])
+                        item_name = suplist[cnt][2]
+                        LOOP cnt_ppe FROM 0 TO (len(ppelist)) STEP 1
+                            IF item_name IN ppelist[cnt_ppe][0] THEN
+                                ItemID = ppelist[cnt_ppe][1]
+                                BREAK
+                            ENDIF
+                            NEXT cnt_ppe
+                        ENDLOOP
+                        DISPLAY("Item ID is :", ItemID)
+                        LOOP cnt FROM 0 TO (len(ppelist)) STEP 1
+                            IF ItemID IN ppelist[cnt][1] THEN
+                                ppe_quant = INTEGER(ppelist[cnt][3])
+                                DISPLAY("Enter quantity of item added : ")
+                                READ receive_quantity
+                                new_sup_q = sup_quant + receive_quantity
+                                new_ppe_q = ppe_quant + receive_quantity
+                                suplist[cnt][4] = STRING(new_sup_q)
+                                ppelist[cnt][3] = STRING(new_ppe_q)
+                                CALL u_code(2)
+                                TransID = CALL readID(2)
+                                DISPLAY ("Transaction ID :", TransID)
+                                Date = FROM datetime CALL date.today()
+                                trans = ItemID + "-"+supplierID+"-"+STRING(receive_quantity)+"-"+STRING(Date)+"-"+TransID+"\n"
+                                WRITE trans TO transfh
+                                WITH OPEN "Assignment\ppe.txt","w" AS fh
+                                    LOOP cnt FROM 0 TO (len(ppelist)) STEP 1
+                                        join(ppelist[cnt]) with "-"+"\n" AS rec
+                                        WRITE rec TO fh
+                                        NEXT cnt
+                                    ENDLOOP
+                                ENDWITH
+                                WITH OPEN "Assignment\suppliers.txt","w" AS fh
+                                    LOOP cnt FROM 0 TO (len(suplist)) STEP 1
+                                        join(suplist[cnt]) with "-"+"\n" AS rec
+                                        WRITE rec TO fh
+                                        NEXT cnt
+                                    ENDLOOP
+                                ENDWITH
+                                DISPLAY("Do you wish to make another transactions? [n] to stop : ")
+                                READ cont
+                                IF cont WITH lower() == "n" THEN
+                                    DISPLAY("Transactions has been recorded in Transactions.txt")
+                                    l1flag = 1
+                                    BREAK
+                                ENDIF
+                            NEXT cnt
+			ENDLOOP
+			ENDIF        
+                    NEXT cnt
+                ENDLOOP
+                IF l1flag ==1 THEN
+                    BREAK
+                ENDIF        
+                IF supflag == -1 THEN
+                    DISPLAY("Supplier Code not found")
+                    BREAK
+                ENDIF
+            ENDDO
+    EXCEPT
+        DISPLAY("Error format/Data not found")
+    ENDTRY
+ENDDEFINE
+
+DEFINE AddPPEdata()
+    TRY
+        WITH OPEN "Assignment\ppe.txt","a" AS ppeFile
+            DOWHILE True
+                DISPLAY("Please enter the PPE item name : ")
+                READ itemname
+                DISPLAY("Please enter the item code : ")
+                READ itemcode
+                DISPLAY("Register / Enter Supplier Code : ")  
+                READ suppliercode
+                DECLARE quantity as INTEGER
+                quantity = 100
+                DISPLAY("Please enter the year item inputted (YYYY) : ")
+                READ YYYY
+                DISPLAY("Please enter the month item inputted (MM) : ")
+                READ MM
+                MM = CALL monthLimit(MM)
+                DISPLAY("Please enter the date item inputted (DD) : ")
+                READ DD
+                DD = CALL dayLimit(YYYY, MM, DD)
+                ppeData = itemname+"-"+itemcode+"-"+suppliercode+"-"+STRING(quantity)+"-"+STRING(YYYY)+"-"+STRING(MM)+"-"+STRING(DD)+"\n"
+                WRITE ppeData TO ppeFile
+                DISPLAY("Press Enter key to continue or [q] to stop : ")
+                READ cont
+                IF cont WITH lower()=="q" THEN
+                    DISPLAY("PPE data has been recorded to ppe.txt file")
+                    BREAK
+                ENDIF
+            ENDDO
+        ENDWITH
+    EXCEPT
+        DISPLAY("Error format/Please Try again")
+    ENDTRY
+ENDDEFINE
+
+DEFINE u_code(ind)
+    DECLARE codeList = []
+    WITH OPEN "Assignment\codegate.txt","r" AS algocode
+        FOR EACH code IN algocode
+            APPEND code to codeList WITH strip() and split("-")
+        ENDFOR
+        num = codeList[0][ind]
+        numtemp = SLICE 6 words FROM num
+        numonly = INTEGER(numtemp)
+        DECLARE numList = []
+        numonly+=1
+        APPEND numonly TO numList
+    ENDWITH
+    DECLARE newcode=[]
+    APPEND (codeList[0][ind][FIRST 6 WORDS]) TO newcode
+    tempCode = newcode + (numList)
+    genCode = ""
+    LOOP i FROM 0 TO 2 STEP 1
+        genCode = genCode+STRING(tempCode[i])
+        NEXT i
+    ENDLOOP
+    codeList[0][ind] = genCode
+    WITH OPEN "Assignment\codegate.txt","w" AS codewriter
+        FOR EACH code IN codeList
+            join(code) with "-"+"\n" AS cd
+        ENDFOR
+        WRITE cd TO codewriter
+    ENDWITH
+ENDDEFINE
+
+DEFINE readID(ind)
+    DECLARE codelist = []
+    WITH OPEN "Assignment\codegate.txt","r" AS readsup
+        FOR EACH code IN readsup
+            APPEND code TO codelist WITH strip() and split("-")
+        ENDFOR
+    ENDWITH
+    ID = codelist[0][ind]
+    RETURN ID
+ENDDEFINE
+
+DEFINE genAuthcode()
+    WITH OPEN "Assignment\codegate.txt","w" AS authFile
+        auth = "HID9890"+"-"+"DID6560"+"-"+"TID7470"
+        WRITE auth TO authFile
+    ENDWITH
+ENDDEFINE
+
+DEFINE userSignUp(file)
+    WITH OPEN "Assignment\login.txt","a" AS loginFile
+        DOWHILE True
+            DISPLAY("Enter your User ID : ")
+            READ userName
+            DISPLAY("Enter your Password : ")
+            READ userPW
+            LoginData = file +"-"+userName +"-"+ userPW+"\n"
+            WRITE LoginData TO loginFile
+            DISPLAY("User account has been succesfully saved")
+            BREAK
+        ENDDO
+    ENDWITH
+ENDDEFINE
+
+DEFINE userLogin(file)
+    TRY
+        WTIH OPEN "Assignment\login.txt","r" AS readLogin
+            DECLARE USERLOGDATA = []
+            FOR EACH userData IN readLogin
+                APPEND userData TO USERLOGDATA WITH strip() and split("-")
+            ENDFOR
+        ENDWITH
+        
+        LOOP cnt FROM 0 TO (len(USERLOGDATA))
+            IF file IN USERLOGDATA[cnt][0] THEN
+                DISPLAY("Enter existing User ID : ")
+                READ userLogin
+                DISPLAY("Enter Password : ")
+                READ userPassword
+                IF USERLOGDATA[cnt][1] == userLogin and USERLOGDATA[cnt][2] == userPassword THEN
+                    DISPLAy("Succesful")
+                    RETURN True 
+                ELSE
+                    DISPLAY("Login failed")
+                ENDIF
+            ENDIF
+            NEXT cnt
+        ENDLOOP
+    EXCEPT
+        DISPLAY("Error format/Data not found")
+    ENDTRY
+ENDDEFINE
+
+DEFINE viewInformation()
+    DECLARE ppeInfo = []
+    DECLARE supInfo = []
+    DECLARE combInfo = []
+    WITH OPEN "Assignment\ppe.txt","r" AS readPPE 
+        FOR EACH info IN readPPE
+            APPEND info TO ppeInfo WITH strip() and split("-")
+        ENDFOR
+    ENDWITH
+    WITH OPEN "Assignment\suppliers.txt","r" AS readSuppliers
+        FOR EACH info IN readSuppliers
+            APPEND info TO supInfo WITH strip() and split("-")
+        ENDFOR
+    ENDWITH
+    DECLARE allList = []
+    LOOP cnt FROM 0 TO (len(supInfo)) STEP 1
+        combInfo = ppeInfo[cnt] + supInfo[cnt]
+        APPEND combInfo TO allList
+        NEXT cnt
+    ENDLOOP
+    LOOP x FROM 0 TO (len(allList)-1) STEP 1
+        LOOP y FROM x+1 TO (len(allList)) STEP 1
+            IF allList[x][0] > allList[y][0] THEN
+                temp = allList[x]
+                allList[x] = allList[y]
+                allList[y] = temp
+            ENDIF
+            NEXT y
+        ENDLOOP
+        NEXT x
+    ENDLOOP
+    CALL headerView(allList)
+ENDDEFINE
+
+DEFINE view25()
+    DECLARE allList = []
+    WITH OPEN "Assignment\ppe.txt","r" AS readPPE 
+        FOR EACH info IN readPPE
+            APPEND info TO allList WITH strip() and split("-")
+        ENDFOR
+    ENDWITH     
+    flag = -1
+    LOOP cnt FROM 0 TO (len(allList)) STEP 1
+        quant = INTEGER(allList[cnt][3])
+        item_name = allList[cnt][0]
+        item_ID = allList[cnt][1]
+        IF quant < 25:
+            flag = cnt
+            DISPLAY(item_name+" "+item_ID+" has quantity of "+STRING(quant)+" boxes left")
+        ENDIF
+        NEXT cnt 
+    ENDLOOP       
+    IF flag == -1:
+        DISPLAY("All item stock is above 25 boxes")
+    ENDIF
+ENDDEFINE
+
+DEFINE ppeview()
+    WITH OPEN "Assignment\ppe.txt" AS fh
+        DECLARE ppe = []
+        FOR EACH data IN fh:
+            APPEND data TO ppe WITH strip() and split("-")
+        ENDFOR
+        DISPLAY("="* 75)
+        DISPLAY("Item Name".center(15)+"|"+"Item Code".center(20)+"|"+"Item Quantity(Box)".center(20)+"|"+"Date Inputted".center(15))
+        DISPLAY("="* 75) 
+        LOOP line FROM 0 TO (len(ppe)) STEP 1
+            DISPLAY(ppe[line][0].center(15)+"|"+ppe[line][1].center(20)+"|"+ppe[line][3].center(20)+"|"+(ppe[line][4]+"/"+ppe[line][5]+"/"+ppe[line][6]).center(15))
+            NEXT line
+        ENDLOOP
+    ENDWITH
+ENDDEFINE
+
+DEFINE supplyview()
+    WITH OPEN "Assignment\suppliers.txt" AS fh
+        DECLARE supplier = []
+        FOR EACH data IN fh
+            APPEND data TO supplier WITH strip() and split("-")
+        ENDFOR
+        DISPLAY("="* 95)
+        DISPLAY("Supplier Name".center(15)+"|"+"Supplier Code".center(20)+"|"+"Item Supplied".center(20)+"|"+"Supplier Address".center(20)+"|"+"Item quantity".center(15))
+        DISPLAY("="* 95) 
+        LOOP line FROM 0 TO (len(supplier)) STEP 1
+            DISPLAY(supplier[line][0].center(15)+"|"+supplier[line][1].center(20)+"|"+supplier[line][2].center(20)+"|"+supplier[line][3].center(20)+"|"+supplier[line][4].center(15))
+            NEXT line
+        ENDLOOP
+    ENDWITH
+ENDDEFINE
+
+DEFINE hospitalview()
+    WITH OPEN "Assignment\hospital.txt") AS fh
+        DECLARE hospital = []
+        FOR EACH data IN fh
+            APPEND data TO supplier WITH strip() and split("-")
+        ENDFOR
+        DISPLAY("="* 75)
+        DISPLAY("Hospital Name".center(15)+"|"+"Hospital Code".center(20)+"|"+"Hospital Address".center(20)+"|"+"Contact Number".center(15))
+        DISPLAY("="* 75) 
+        LOOP line FROM 0 TO (len(hospital)) STEP 1
+            DISPLAY(hospital[line][0].center(15)+"|"+hospital[line][1].center(20)+"|"+hospital[line][2].center(20)+"|"+hospital[line][3].center(15))
+            NEXT line
+        ENDLOOP
+    ENDWITH
+ENDDEFINE
+
+DEFINE headerView(lists):
+    DISPLAY("="* 136)
+    DISPLAY("Item Name".center(15)+"|"+"Item Code".center(20)+"|"+"Item Quantity(Box)".center(20)+"|"+"Supplier Name".center(20)+"|"+"Supplier Code".center(20)+"|"+"Supplier Address".center(20)+"|"+"Date Inputted".center(15))
+    DISPLAY("="* 136) 
+    LOOP line FROM 0 TO (len(lists)) STEP 1
+        DISPLAY(lists[line][0].center(15)+"|"+lists[line][1].center(20)+"|"+lists[line][3].center(20)+"|"+lists[line][7].center(20)+"|"+lists[line][8].center(20)+"|"+lists[line][10].center(20)+"|"+(lists[line][4]+"/"+lists[line][5]+"/"+lists[line][6]).center(15))
+        NEXT line
+    ENDLOOP
+ENDDEFINE
+
+DEFINE viewDistribution()
+    WITH OPEN "Assignment\distribution.txt","r" AS disfh
+        DECLARE dislist = []
+        FOR EACH elem IN disfh
+            APPEND elem TO dislist WITH strip() and split("-")
+        ENDFOR
+        DISPLAY("="* 77)
+        DISPLAY("Item Code".center(15)+"|"+"Item Quantity(Box)".center(20)+"|"+"Hospital Code".center(20)+"|"+"Distribution Code".center(20))
+        DISPLAY("="* 77) 
+        LOOP line FROM 0 TO (len(dislist)) STEP 1
+            DISPLAY(dislist[line][0].center(15)+"|"+dislist[line][1].center(20)+"|"+dislist[line][2].center(20)+"|"+dislist[line][3].center(20))    
+            NEXT line
+        ENDLOOP
+    ENDWITH
+ENDDEFINE
+
+DEFINE modifyPPE()
+    TRY
+        DECLARE data = []
+        WITH OPEN "Assignment\ppe.txt","r" AS fh
+            FOR EACH line IN fh
+                elem = line WITH strip() and split("-")
+                APPEND elem TO data
+            ENDFOR
+        ENDWITH  
+        DISPLAY("Please enter Item Code : ")
+        READ skey
+        flg = -1
+        LOOP cnt FROM 0 TO (len(data))
+            IF skey IN data[cnt][1] THEN
+                flg = cnt
+                BREAK
+            ENDIF
+            NEXT cnt
+        ENDLOOP
+        IF flg == -1 THEN
+            DISPLAY("Data not found")
+        ENDIF
+        IF flg != -1 THEN
+            DISPLAY("1 -Item Name   : "+ data[flg][0])
+            DISPLAY("2 -Item Code     : "+ data[flg][1])
+            DISPLAY("3 -Supplier Code : "+ data[flg][2])
+            DISPLAY("4 -Quantity : "+ data[flg][3])
+            DISPLAY("5- Year : "+ data[flg][4])
+            DISPLAY("6 -Month : "+ data[flg][5])
+            DISPLAY("7 -Date : "+ data[flg][6])
+            DISPLAY("Ënter the number to modify :")) 
+            READ ans 
+            DISPLAY("Ënter a new value: ")
+            ans = CALL limitopt(ans,7) 
+            READ data[cnt][ans-1]
+            DISPLAY("***Succesfully changed***")
+            WITH OPEN "Assignment\ppe.txt","w" AS fh
+                LOOP cnt FROM 0 TO (len(data)) STEP 1
+                    join(data[cnt]) with "-"+"\n" AS rec
+                    WRITE rec TO fh
+                    NEXT cnt
+                ENDLOOP
+            ENDWITH
+        ENDIF
+    EXCEPT
+        DISPLAY("Error or File not found")
+    ENDTRY
+ENDDEFINE
+
+DEFINE modifySup()
+    TRY
+        DECLARE data = []
+        WITH OPEN "Assignment\suppliers.txt","r" AS fh
+            FOR EACH line IN fh
+                elem = line WITH strip() and split("-")
+                APPEND elem TO data
+            ENDFOR
+        ENDWITH  
+        DISPLAY("Please enter Supplier Code : ")
+        READ skey
+        flg = -1
+        LOOP cnt FROM 0 TO (len(data))
+            IF skey IN data[cnt][1] THEN
+                flg = cnt
+                BREAK
+            ENDIF
+            NEXT cnt
+        ENDLOOP
+        IF flg == -1 THEN
+            DISPLAY("Data not found")
+        ENDIF
+        IF flg != -1 THEN
+            DISPLAY("1 -Supplier Name : "+ data[flg][0])
+            DISPLAY("2 -Supplier Code : "+ data[flg][1])
+            DISPLAY("3 -Item Supplied : "+ data[flg][2])
+            DISPLAY("4 -Supplier Address : "+ data[flg][3])
+            DISPLAY("5- Quantity Supplied : "+ data[flg][4])
+            DISPLAY("Ënter the number to modify :")) 
+            READ ans 
+            DISPLAY("Ënter a new value: ")
+            ans = CALL limitopt(ans,7) 
+            READ data[cnt][ans-1]
+            DISPLAY("***Succesfully changed***")
+            WITH OPEN "Assignment\ppe.txt","w" AS fh
+                LOOP cnt FROM 0 TO (len(data)) STEP 1
+                    join(data[cnt]) with "-"+"\n" AS rec
+                    WRITE rec TO fh
+                    NEXT cnt
+                ENDLOOP
+            ENDWITH
+        ENDIF
+    EXCEPT
+        DISPLAY("Error or File not found")
+    ENDTRY
+ENDDEFINE
+
+DEFINE modifyHosp()
+    TRY
+        DECLARE data = []
+        WITH OPEN "Assignment\hospital.txt","r" AS fh
+            FOR EACH line IN fh
+                elem = line WITH strip() and split("-")
+                APPEND elem TO data
+            ENDFOR
+        ENDWITH  
+        DISPLAY("Please enter Supplier Code : ")
+        READ skey
+        flg = -1
+        LOOP cnt FROM 0 TO (len(data))
+            IF skey IN data[cnt][1] THEN
+                flg = cnt
+                BREAK
+            ENDIF
+            NEXT cnt
+        ENDLOOP
+        IF flg == -1 THEN
+            DISPLAY("Data not found")
+        ENDIF
+        IF flg != -1 THEN
+            DISPLAY("1 -Hospital Name : "+ data[flg][0])
+            DISPLAY("2 -Hospital Code : "+ data[flg][1])
+            DISPLAY("3 -Hospital Address : "+ data[flg][2])
+            DISPLAY("4 -Contact Number : "+ data[flg][3])
+            DISPLAY("Ënter the number to modify :"))
+            ans = CALL limitopt(ans,4) 
+            READ ans 
+            DISPLAY("Ënter a new value: ")
+            READ data[cnt][ans-1]
+            DISPLAY("***Succesfully changed***")
+            WITH OPEN "Assignment\hospital.txt","w" AS fh
+                LOOP cnt FROM 0 TO (len(data)) STEP 1
+                    join(data[cnt]) with "-"+"\n" AS rec
+                    WRITE rec TO fh
+                    NEXT cnt
+                ENDLOOP
+            ENDWITH
+        ENDIF
+    EXCEPT
+        DISPLAY("Error or File not found")
+    ENDTRY
+ENDDEFINE
+
+DEFINE searchPPEDetail()
+    TRY
+        DECLARE ppeInfo = []
+        WITH OPEN "Assignment\ppe.txt","r" AS readPPE
+            FOR EACH info IN readPPE:
+                APPEND info TO ppeInfo WITH strip() and split("-")
+            ENDFOR
+        ENDWITH
+        DISPLAY("Please enter item Code : ")
+        READ skey
+        flag = -1
+        LOOP line FROM 0 TO (len(ppeInfo)) STEP 1
+            IF skey IN ppeInfo[line][1] THEN
+                flag = line
+                DISPLAY("="* 115)
+                DISPLAY("Item Name".center(15)+"|"+"Item Code".center(20)+"|"+"Supplier Code".center(20)+"|"+"Item Quantity(Box)".center(20)+"|"+"Date Inputted".center(15))
+                DISPLAY("="* 115)
+                DISPLAY(ppeInfo[line][0].center(15)+"|"+ppeInfo[line][1].center(20)+"|"+ppeInfo[line][2].center(20)+"|"+ppeInfo[line][3].center(20)+"|"+(ppeInfo[line][4]+"/"+ppeInfo[line][5]+"/"+ppeInfo[line][6]).center(15)) 
+                BREAK
+            ENDIF
+            NEXT line
+        ENDLOOP
+        IF flag == -1 THEN
+            DISPLAY("Data not found")   
+        ENDIF      
+    EXCEPT
+        DISPLAY("Error format/Data not exist")
+    ENDTRY
+ENDDEFINE
+
+DEFINE searchSupDetail()
+    TRY
+        DECLARE supInfo = []
+        WITH OPEN "Assignment\suppliers.txt","r" AS readSup
+            FOR EACH info IN readSup
+                APPEND info TO supInfo WITH strip() and split("-")
+            ENDFOR
+        ENDWITH
+        DISPLAY("Please enter supplier Code : ")
+        READ skey
+        flag = -1
+        LOOP line FROM 0 TO (len(supInfo)) STEP 1
+            IF skey IN supInfo[line][1] THEN
+                flag = line
+                DISPLAY("="* 116)
+                DISPLAY("Supplier Name".center(15)+"|"+"Supplier Code".center(20)+"|"+"Item Supplied".center(20)+"|"+"Supplier Address".center(20)+"|"+"Quantity Supply".center(20))
+                DISPLAY("="* 116)
+                DISPLAY(supInfo[line][0].center(15)+"|"+supInfo[line][1].center(20)+"|"+supInfo[line][2].center(20)+"|"+supInfo[line][3].center(20)+"|"+supInfo[line][4].center(15)) 
+                BREAK
+            ENDIF
+            NEXT line
+        ENDLOOP
+        IF flag == -1 THEN
+            DISPLAY("Data not found")   
+        ENDIF      
+    EXCEPT
+        DISPLAY("Error format/Data not exist")
+    ENDTRY
+ENDDEFINE
+
+DEFINE searchHospDetail()
+    TRY
+        DECLARE hospeInfo = []
+        WITH OPEN "Assignment\hospital.txt","r" AS readfh
+            FOR EACH info IN readfh
+                APPEND info TO supInfo WITH strip() and split("-")
+            ENDFOR
+        ENDWITH
+        DISPLAY("Please enter Hospital Code : ")
+        READ skey
+        flag = -1
+        LOOP line FROM 0 TO (len(hospeInfo)) STEP 1
+            IF skey IN hospeInfo[line][1] THEN
+                flag = line
+                DISPLAY("="* 75)
+                DISPLAY("Hospital Name".center(15)+"|"+"Hospital Code".center(20)+"|"+"Hospital Address".center(20)+"|"+"Contact Number".center(15))
+                DISPLAY("="* 75) 
+                DISPLAY(hospeInfo[line][0].center(15)+"|"+hospeInfo[line][1].center(20)+"|"+hospeInfo[line][2].center(20)+"|"+hospeInfo[line][3].center(15))
+                BREAK
+            ENDIF
+            NEXT line
+        ENDLOOP
+        IF flag == -1 THEN
+            DISPLAY("Data not found")
+        ENDIF         
+    EXCEPT
+        DISPLAY("Error format/Data not exist")
+    ENDTRY
+ENDDEFINE
+
+DEFINE searchDistribution()
+    TRY
+        DECLARE dislist = []
+        WITH OPEN "Assignment\distribution.txt","r" AS disfh
+            FOR EACH info IN disfh
+                APPEND info TO supInfo WITH strip() and split("-")
+            ENDFOR
+        ENDWITH
+        DISPLAY("Please enter item Code : ")
+        READ skey
+        flag = -1
+        DISPLAY("="* 77)
+        DISPLAY("Item Code".center(15)+"|"+"Item Quantity(Box)".center(20)+"|"+"Hospital Code".center(20)+"|"+"Distribution Code".center(20))
+        DISPLAY("="* 77)
+        LOOP line FROM 0 TO len(dislist)
+            IF skey IN dislist[line][0] THEN
+                flag = line
+                DOWHILE True
+                    DISPLAY(dislist[line][0].center(15)+"|"+dislist[line][1].center(20)+"|"+dislist[line][2].center(20)+"|"+dislist[line][3].center(20))
+                    BREAK
+                ENDDO
+            ENDIF
+            NEXT line
+        ENDLOOP
+        IF flag == -1 THEN
+            DISPLAY("Data not found") 
+        ENDIF        
+    EXCEPT
+        DISPLAY("Error format/Data not exist")
+    ENDTRY
+ENDDEFINE
+  
+
+DEFINE monthLimit(MM)
+    IF MM<0 OR MM>12 THEN
+        mFlag = -1
+        DOWHILE mFlag == -1
+            DISPLAY("Please enter the month in the proper format (MM) : ")
+            READ MM
+            IF MM>0 AND MM<=12 THEN
+                mFlag=MM
+                BREAK
+            ENDIF
+        ENDDO
+    ENDIF
+    RETURN MM
+ENDDEFINE
+
+DEFINE dayLimit(YYYY, MM, DD)
+    IF MM == 4 or MM == 6 or MM == 9 or MM == 11 THEN
+        IF DD<0 OR DD>30 THEN
+            dFlag = -1
+            DOWHILE dFlag == -1 
+                DISPLAY("Please enter the date in the proper format : ")
+                READ DD
+                IF DD>0 AND DD<=30 THEN
+                    dFlag = DD
+                    BREAK
+                ENDIF
+            ENDDO
+        ENDIF
+
+    ELSEIF YYYY%4==0 AND MM==2 THEN
+        IF DD<0 OR DD>29 THEN
+            d2Flag = -1
+            DOWHILE d2Flag == -1
+                DISPLAY("Please enter the date with the correct format : ")
+                READ DD
+                IF DD>0 AND DD<=29 THEN
+                    d2Flag == DD
+                    BREAK
+                ENDIF
+            ENDDO
+        ENDIF
+    ELSEIF YYYY%4!= AND MM == 2 THEN
+        IF DD<0 OR DD>28 THEN
+            d3Flag = -1
+            DOWHILE d3Flag == -1
+                DISPLAY(input("Please enter the date with the correct format : ")
+                IF DD>0 AND DD<=28 THEN
+                    d3Flag == DD
+                    BREAK
+                ENDIF
+            ENDO
+        ENDIF
+    ELSEIF DD<0 OR DD>31 THEN
+        d4Flag = -1
+        DOWHILE d4Flag == -1
+            DISPLAY("Please enter the date the correct format : "))
+            IF DD>0 AND DD<=31 THEN
+                d4Flag = DD
+                BREAK
+            ENDIF
+        ENDDO
+    ENDIF
+    RETURN DD
+ENDDEFINE
+
+DEFINE limitopt(opt,upper)
+    DOWHILE opt<1 OR opt>upper
+        DISPLAY("Enter according to the option available : ")
+        IF opt IN RANGE FROM 1 UNTIL upper+1 THEN
+            BREAK
+        ENDIF
+    ENDDO
+    RETURN opt
+ENDDEFINE
+
+DEFINE gate(arr,opt,file)
+    IF arr[opt-1] == 0  THEN     
+        userSignUp(file)
+        arr[opt-1] =1  
+    ELSE
+        DISPLAY("*** Account Exist ***") 
+    ENDIF
+ENDDEFINE
+
+DEFINE ALL_MENU 
+    TRY
+        flag = CALL startPPEdata()
+        DECLARE MENU_ARRAY = [1,0,0,0,0]
+        DECLARE SUB_MENU_FLAG = [0,0,0,0,0]
+        DOWHILE True
+            IF flag == 1 THEN
+                DOWHILE True
+                    DISPLAY("1- Create Admin Account")
+                    DISPLAY("2- PPE File")
+                    DISPLAY("3- Suppliers File")
+                    DISPLAY("4- Hospital File")
+                    DISPLAY("5- Move to next menu")
+                    DISPLAY("Enter your option : ")
+                    READ option
+                    option = CALL limitopt(option,5)
+                    IF option ==1 THEN
+                        DOWHILE True
+                            DISPLAY("1. ppe.txt")
+                            DISPLAY("2- suppliers.txt")
+                            DISPLAY("3- hospital.txt")
+                            DISPLAY("4- Distribution")
+                            DISPLAY("5- Move to Last Menu")
+                            DISPLAY("Enter your option : ")
+                            READ ask
+                            ask = CALL limitopt(ask,6)
+                            IF ask == 1 THEN
+                                CALL gate(SUB_MENU_FLAG,ask,"ppe")
+                            ELSEIF ask ==2 THEN
+                                CALL gate(SUB_MENU_FLAG,ask,"suppliers")
+                            ELSEIF ask== 3 THEN
+                                CALL gate(SUB_MENU_FLAG,ask,"hospital")
+                            ELSEIF ask == 4 THEN
+                                CALL gate(SUB_MENU_FLAG,ask,"distribution")
+                            ELSEIF ask == 5 THEN
+                                CALL gate(SUB_MENU_FLAG,ask,"Transactions")
+                            ELSEIF ask == 6 THEN
+                                BREAK
+                            ENDIF
+                        ENDDO
+                    ELSEIF option == 2 AND SUB_MENU_FLAG[option-2]==0 THEN
+                        DISPLAY("Please Create Admin Account")
+                    ELSEIF option==2 AND MENU_ARRAY[option-2]==1 AND SUB_MENU_FLAG[option-2]==1 THEN
+                        IF CALL userLogin("ppe") == True THEN
+                            DOWHILE True
+                                DISPLAY("1. View Personal Protective Equipment Data")
+                                DISPLAY("2- Search Specific Item")
+                                DISPLAY("3- Modify data in File")
+                                DISPLAY("4- Move to Last Menu")
+                                DISPLAY("Enter your option : ")
+                                READ ask
+                                ask = CALL limitopt(ask,4)
+                                IF ask==1 THEN
+                                    CALL ppeview()
+                                ELSEIF ask==2 THEN
+                                    CALL searchPPEDetail()
+                                ELSEIF ask==3 THEN
+                                    CALL modifyPPE()
+                                ELSEIF ask == 4 THEN
+                                    BREAK
+                                ENDIF
+                            ENDDO
+                        ENDIF
+                    ELSEIF option == 3 AND MENU_ARRAY[option-2]==0 THEN
+                        DISPLAY("Enter how many suppliers to input")
+                        READ supnum
+                        CALL startSupplydata("w",supnum)
+                        MENU_ARRAY[option-2]=1
+                    ELSEIF option ==3 AND SUB_MENU_FLAG[option-2]==0 THEN 
+                        DISPLAY("Please Create Admin Account")
+                    ELSEIF option==3 AND MENU_ARRAY[option-2]==1 AND SUB_MENU_FLAG[option-2]==1 THEN
+                        IF CALL userLogin("suppliers") == True THEN
+                            DOWHILE True
+                                DISPLAY("1. View Suppliers Data")
+                                DISPLAY("2- Search Specific Supplier")
+                                DISPLAY("3- Modify data in File")
+                                DISPLAY("4- Move to Last Menu")
+                                DISPLAY("Enter your option : ")
+                                READ ask
+                                ask = CALL limitopt(ask,4)
+                                IF ask==1 THEN
+                                    CALL supplyview()
+                                ELISEF ask==2 THEN
+                                    CALL searchSupDetail()
+                                ELSEIF ask==3 THEN
+                                    CALL modifySup()
+                                ELSEIF ask == 4 THEN
+                                    BREAK
+                                ENDIF
+                            ENDDO
+                        ENDIF
+                    ELSEIF option == 4 AND MENU_ARRAY[option-2]==0 THEN
+                        DISPLAY("Enter how many hospital to input")
+                        READ hosnum
+                        CALL startHospital("w",hosnum)
+                        MENU_ARRAY[option-2]=1
+                    ELSEIF option ==4 AND SUB_MENU_FLAG[option-2]==0 THEN
+                        DISPLAY("Please Create Admin Account!!")
+                    ELSEIF option ==4 AND MENU_ARRAY[option-2]==1 AND SUB_MENU_FLAG[option-2]==1 THEN
+                        IF CALL userLogin("hospital") == True THEN
+                            DOWHILE True
+                                DISPLAY("1. View Hospital Data")
+                                DISPLAY("2- Search Specific Hospital")
+                                DISPLAY("3- Modify data in File")
+                                DISPLAY("4- Move to Last Menu")
+                                DISPLAY("Enter your option : ")
+                                READ ask
+                                ask = CALL limitopt(ask,4)
+                                IF ask==1 THEN
+                                    CALL hospitalview()
+                                ELSEIF ask==2 THEN
+                                    CALL searchHospDetail()
+                                ELSEIF ask==3 THEN
+                                    CALL modifyHosp()
+                                ELSEIF ask == 4 THEN
+                                    BREAK
+                                ENDIF    
+                            ENDDO
+                        ENDIF
+                    ELSEIF option == 5 THEN
+                        flag = 2
+                        BREAK
+                    ENDIF
+                ENDDO
+            IF flag == 2 THEN
+                DOWHILE True
+                    DISPLAY("1 - Register more PPE Item")
+                    DISPLAY("2 - Register more Supplier")
+                    DISPLAY("3 - Register more Hospital")
+                    DISPLAY("4 - Hospital Distribution") 
+                    DISPLAY("5 - Supplier Transaction") 
+                    DISPLAY("6 - Inventory Tracking") 
+                    DISPLAY("7 - Distribution List")
+                    DISPLAY("8 - Move to Last Menu")
+                    DISPLAY("9 - End the Programme")
+                    DISPLAY("Enter your option : ")
+                    READ option
+                    option = CALL limitopt(option,9)
+                    IF option == 1 THEN
+                        CALL AddPPEdata() 
+                    ELSEIF option == 2 THEN
+                        DISPLAY("Enter how many suppliers to input : ")
+                        READ supnum
+                        CALL startSupplydata("a",supnum) 
+                    ELSEIF option == 3 THEN
+                        DISPLAY("Enter how many hospital to input : ")
+                        READ hosnum
+                        CALL startHospital("a",hosnum)
+                    ELSEIF option == 4 THEN
+                        IF MENU_ARRAY[option-2]==1 THEN
+                            IF userLogin("distribution")==True THEN
+                                CALL startDistribution("a")
+                            ENDIF
+                        ELSE
+                            print("hospital.txt / Admin Account doesn't exist")
+                        ENDIF
+                    ELSEIF option == 5 THEN
+                        IF MENU_ARRAY[1]==1 THEN
+                            IF userLogin("Transactions")==True THEN
+                                CALL startTransactions()
+                            ENDIF
+                        ELSE
+                            DISPLAY("suppliers.txt / Admin account does not exist")
+                        ENDIF
+                    ELSEIF option == 6 THEN
+                        DOWHILE True
+                            DISPLAY("1. View quantity available for all item")
+                            DISPLAY("2. View all item < 25 boxes")
+                            DISPLAY("3. Move to Last Menu")
+                            DISPLAY("Enter your option : ")
+                            READ ask
+                            ask = CALL limitopt(ask,3)
+                            IF ask == 1 THEN
+                                CALL viewInformation()
+                            ELSEIF ask ==2 THEN
+                                CALL view25()
+                            ELSEIF ask ==3
+                                BREAK
+                            ENDIF
+                        ENDDO
+                    ELSEIF option==7 THEN
+                        DOWHILE True
+                            DISPLAY("1. View All Distribution")
+                            DISPLAY("2. Search for specific item distribution")
+                            DISPLAY("3. Move to Last Menu")
+                            DISPLAY("Enter your option : ")
+                            READ ask
+                            ask = CALL limitopt(ask,3)
+                            IF ask ==1 THEN
+                                CALL viewDistribution()
+                            ELSEIF ask ==2 THEN
+                                CALL searchDistribution()
+                            ELSEIF ask==3 THEN
+                                BREAK
+                            ENDIF
+                        ENDDO
+                    ELSEIF option == 8 THEN
+                        flag = 1
+                        BREAK
+                    ELSEIF option == 9 THEN
+                        flag = 3
+                        BREAK
+                    ENDIF            
+                ENDDO    
+            ELSEIF flag ==3 THEN
+                BREAK 
+            ENDIF
+        ENDDO
+        DISPLAY("END OF PROGRAM")
+    EXCEPT
+        DISPLAY("Error Format/Data not found")
+    ENDTRY
+ENDDEFINE
+
+BEGIN
+    CALL ALL_MENU()
+END
